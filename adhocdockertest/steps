@@ -1,0 +1,457 @@
+Task 1
+-------------
+
+creating pod
+-----------------------
+[root@lab adhocdockertest1]# kubectl run shashankpod --image=alpine --restart=Never --dry-run -o yaml > multipod.yml
+W0419 17:04:20.537805   12200 helpers.go:535] --dry-run is deprecated and can be replaced with --dry-run=client.
+[root@lab adhocdockertest1]# ls
+multipod.yml
+
+edited pod file
+-----------------
+[root@lab adhocdockertest1]# vim multipod.yml 
+apiVersion: v1
+kind: Pod
+metadata:
+  creationTimestamp: null
+  labels:
+    run: shashankpod
+  name: shashankpod
+spec:
+  containers:
+  - image: alpine
+    name: shashankpod
+    command: ["/bin/sh","-c","ping fb.com"]
+    
+  - image: busybox
+    name: sidecar
+    command: ["/bin/sh","-c","sleep 10000"]
+    resources: {}
+  dnsPolicy: ClusterFirst
+  restartPolicy: Never
+status: {}
+
+
+[root@lab adhocdockertest1]# kubectl create -f multipod.yml -n default
+pod/shashankpod created
+
+[root@lab adhocdockertest1]# kubectl get pods
+NAME          READY   STATUS      RESTARTS   AGE
+hello1apurv   1/1     Running     0          53m
+hello2apurv   1/1     Running     0          53m
+helloapurv    1/1     Running     0          53m
+shashankpod   2/2     Running     0          55s
+sidecarpod    0/2     Completed   0          20h
+
+[root@lab adhocdockertest1]# kubectl logs shashankpod -c shashankpod 
+PING fb.com (31.13.66.35): 56 data bytes
+64 bytes from 31.13.66.35: seq=0 ttl=50 time=0.543 ms
+64 bytes from 31.13.66.35: seq=1 ttl=50 time=0.679 ms
+64 bytes from 31.13.66.35: seq=2 ttl=50 time=0.584 ms
+64 bytes from 31.13.66.35: seq=3 ttl=50 time=0.608 ms
+64 bytes from 31.13.66.35: seq=4 ttl=50 time=1.139 ms
+64 bytes from 31.13.66.35: seq=5 ttl=50 time=0.600 ms
+64 bytes from 31.13.66.35: seq=6 ttl=50 time=0.717 ms
+
+
+Task 2
+--------------
+
+creating pod
+-----------------
+
+[root@lab adhocdockertest1]# kubectl create deployment shashank --image=nginx --dry-run -o yaml > deployment.yml
+W0419 17:31:49.084474   15169 helpers.go:535] --dry-run is deprecated and can be replaced with --dry-run=client.
+
+edited pod file
+-----------------
+[root@lab adhocdockertest1]# vim multipodapp.yml
+apiVersion: v1
+kind: Pod
+metadata:
+  creationTimestamp: null
+  labels:
+    run: shashankpodapp
+  name: shashankpodapp
+  namespace: shashank
+spec:
+  volumes: 
+   - name: appvol
+     emptyDir: {}
+  containers:
+  - image: nginx
+    name: shashankpodapp
+    ports:
+    - containerPort: 80
+    volumeMounts:
+     - name: appvol
+       mountPath: /usr/share/nginx/html/
+
+  - image: alpine
+    name: shashankc2 
+    volumeMounts:
+     - name: appvol
+       mountPath: /covid
+    command: ["/bin/sh","-c","while true; do cal 2020 >> /covid/index.html; sleep 20; done"]
+    resources: {}
+  dnsPolicy: ClusterFirst
+  restartPolicy: Never
+status: {}
+
+creating deployment
+--------------------
+[root@lab adhocdockertest1]# kubectl create -f multipodapp.yml 
+pod/shashankpodapp created
+[root@lab adhocdockertest1]# vim shashankpodappsvc.yml 
+[root@lab adhocdockertest1]# kubectl get pods -n shashank 
+NAME             READY   STATUS    RESTARTS   AGE
+shashankpodapp   2/2     Running   0          19s
+
+creating svc
+--------------
+
+apiVersion: v1
+kind: Service
+metadata:
+  creationTimestamp: null
+  labels:
+    run: shashankpodapp
+  name: shashankpodapp
+  namespace: shashank
+spec:
+  ports:
+  - port: 80
+    protocol: TCP
+    targetPort: 80
+  selector:
+    run: shashankpodapp
+  type: NodePort
+status:
+  loadBalancer: {}
+
+[root@lab adhocdockertest]# kubectl get svc -n shashank 
+NAME             TYPE        CLUSTER-IP      EXTERNAL-IP   PORT(S)        AGE
+shashankpodapp   NodePort    10.100.40.95    <none>        80:31695/TCP   123m
+
+
+[root@lab ~]# kubectl exec -it shashankpodapp bash -n shashank 
+kubectl exec [POD] [COMMAND] is DEPRECATED and will be removed in a future version. Use kubectl kubectl exec [POD] -- [COMMAND] instead.
+Defaulting container name to shashankpodapp.
+Use 'kubectl describe pod/shashankpodapp -n shashank' to see all of the containers in this pod.
+root@shashankpodapp:/# 
+root@shashankpodapp:/# 
+root@shashankpodapp:/# ls
+bin  boot  dev	etc  home  lib	lib64  media  mnt  opt	proc  root  run  sbin  srv  sys  tmp  usr  var
+root@shashankpodapp:/# cd /usr/share/nginx/html/
+root@shashankpodapp:/usr/share/nginx/html# ls
+index.html
+root@shashankpodapp:/usr/share/nginx/html# 
+
+
+[root@lab adhocdockertest]# kubectl exec -it shashankpodapp -c shashankc2 sh -n shashank 
+kubectl exec [POD] [COMMAND] is DEPRECATED and will be removed in a future version. Use kubectl kubectl exec [POD] -- [COMMAND] instead.
+/ # ls
+bin    dev    home   media  opt    root   sbin   sys    usr
+covid  etc    lib    mnt    proc   run    srv    tmp    var
+/ # cd covid/
+/covid # ls
+index.html
+/covid # 
+
+
+
+
+Task 3
+--------------
+
+creating deployment 
+-----------------------
+[root@lab adhocdockertest1]# kubectl create deployment shashank --image=nginx --dry-run -o yaml > deployment.yml
+W0419 17:31:49.084474   15169 helpers.go:535] --dry-run is deprecated and can be replaced with --dry-run=client.
+[root@lab adhocdockertest1]# ls
+deployment.yml  multipodapp.yml  multipod.yml  namespace.yml  shashankpodappsvc.yml  steps
+[root@lab adhocdockertest1]# vim deployment.yml 
+
+below is the deployment file
+---------------------------------
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  creationTimestamp: null
+  labels:
+    app: shashank
+  name: shashank
+  namespace: shashank
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: shashank
+  strategy: {}
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        app: shashank
+    spec:
+      volumes: 
+       - name: depvol
+         hostPath:
+          path: /etc/passwd
+          type: File
+      containers:
+      - image: nginx
+        name: nginx
+        volumeMounts: 
+         - name: depvol
+           mountPath: /usr/share/nginx/html/index.html
+        resources: {}
+
+
+[root@lab adhocdockertest1]# kubectl create -f deployment.yml 
+[root@lab adhocdockertest1]# kubectl get deployment -n shashank 
+NAME       READY   UP-TO-DATE   AVAILABLE   AGE
+shashank   3/3     3            3           9s
+[root@lab adhocdockertest1]# kubectl get pods -n shashank 
+NAME                       READY   STATUS    RESTARTS   AGE
+shashank-d5595d55d-4mgcg   1/1     Running   0          48s
+shashank-d5595d55d-hx8nx   1/1     Running   0          48s
+shashank-d5595d55d-t5qr7   1/1     Running   0          48s
+shashankpodapp             2/2     Running   0          12m
+
+crosschecking
+---------------------
+[root@lab adhocdockertest1]# kubectl exec -it shashank-d5595d55d-4mgcg bash  -n shashank 
+kubectl exec [POD] [COMMAND] is DEPRECATED and will be removed in a future version. Use kubectl kubectl exec [POD] -- [COMMAND] instead.
+root@shashank-d5595d55d-4mgcg:/# 
+root@shashank-d5595d55d-4mgcg:/# 
+root@shashank-d5595d55d-4mgcg:/# ls
+bin  boot  dev	etc  home  lib	lib64  media  mnt  opt	proc  root  run  sbin  srv  sys  tmp  usr  var
+root@shashank-d5595d55d-4mgcg:/# cd /usr/share/nginx/html/
+root@shashank-d5595d55d-4mgcg:/usr/share/nginx/html# ls
+50x.html  index.html
+
+exposing deployment
+-------------------------
+[root@lab adhocdockertest1]# kubectl expose deployment shashank -n shashank --port 80 --type NodePort --dry-run -o yaml > shashankdeploysvc.yml
+W0419 17:44:07.115408   15761 helpers.go:535] --dry-run is deprecated and can be replaced with --dry-run=client.
+[root@lab adhocdockertest1]# ls
+deployment.yml   multipod.yml   shashankdeploysvc.yml  steps
+multipodapp.yml  namespace.yml  shashankpodappsvc.yml
+
+Edited svc, added namespace
+---------------------------------
+[root@lab adhocdockertest1]# vim shashankdeploysvc.yml 
+apiVersion: v1
+kind: Service
+metadata:
+  creationTimestamp: null
+  labels:
+    app: shashank
+  name: shashank
+  namespace: shashank
+spec:
+  ports:
+  - port: 80
+    protocol: TCP
+    targetPort: 80
+  selector:
+    app: shashank
+  type: NodePort
+status:
+  loadBalancer: {}
+
+[root@lab adhocdockertest1]# kubectl  create -f shashankdeploysvc.yml
+service/shashank created
+[root@lab adhocdockertest1]# kubectl get svc -n shashank 
+NAME             TYPE       CLUSTER-IP     EXTERNAL-IP   PORT(S)        AGE
+shashank         NodePort   10.106.96.39   <none>        80:31706/TCP   5s
+shashankpodapp   NodePort   10.100.40.95   <none>        80:31695/TCP   22m
+
+Trying to crosscheck
+------------------------
+[root@lab adhocdockertest1]# curl -k 18.210.162.103:31706
+root:x:0:0:root:/root:/bin/bash
+bin:x:1:1:bin:/bin:/sbin/nologin
+daemon:x:2:2:daemon:/sbin:/sbin/nologin
+adm:x:3:4:adm:/var/adm:/sbin/nologin
+lp:x:4:7:lp:/var/spool/lpd:/sbin/nologin
+sync:x:5:0:sync:/sbin:/bin/sync
+shutdown:x:6:0:shutdown:/sbin:/sbin/shutdown
+halt:x:7:0:halt:/sbin:/sbin/halt
+mail:x:8:12:mail:/var/spool/mail:/sbin/nologin
+operator:x:11:0:operator:/root:/sbin/nologin
+games:x:12:100:games:/usr/games:/sbin/nologin
+
+
+Task 4
+------------
+
+creating deployment
+------------------------
+kubectl create deployment shashankdb --image=mysql --dry-run -o yaml > dbdeployment.yml
+W0419 17:48:20.694145   16114 helpers.go:535] --dry-run is deprecated and can be replaced with --dry-run=client.
+[root@lab adhocdockertest1]# ls
+dbdeployment.yml  multipodapp.yml  namespace.yml          shashankpodappsvc.yml
+deployment.yml    multipod.yml     shashankdeploysvc.yml  steps
+
+
+creating secret
+--------------------
+
+[root@lab adhocdockertest1]# cat secret.yml 
+apiVersion: v1
+kind: Secret
+metadata:
+  name: shashank
+type: Opaque
+data:
+  MYSQL_ROOT_PASSWORD: c2hhc2hhbms= 
+
+
+[root@lab adhocdockertest1]# kubectl create -f secret.yml -n shashank 
+secret/shashank created
+
+[root@lab adhocdockertest1]# kubectl get secret -n shashank
+NAME                  TYPE                                  DATA   AGE
+default-token-zg6hj   kubernetes.io/service-account-token   3      62m
+shashanksec           Opaque                                1      8s
+
+
+edited deployment file
+---------------------------
+[root@lab adhocdockertest1]# vim dbdeployment.yml 
+
+piVersion: apps/v1
+kind: Deployment
+metadata:
+  creationTimestamp: null
+  labels:
+    app: shashankdb
+  name: shashankdb
+  namespace: shashank
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: shashankpod11
+  strategy: {}
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        app: shashankpod11
+    spec:
+      containers:
+      - name: shashankpod11
+        image: mysql
+        ports:
+          - name: mysql
+            containerPort: 3306
+        env:
+          - name: MYSQL_ROOT_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: shashanksec
+                key: MYSQL_ROOT_PASSWORD
+
+
+[root@lab adhocdockertest1]# kubectl create -f dbdeployment.yml 
+deployment.apps/shashankdb created
+[root@lab adhocdockertest1]# kubectl get deployment -n shashank 
+NAME         READY   UP-TO-DATE   AVAILABLE   AGE
+shashank     3/3     3            3           92m
+shashankdb   1/1     1            1           6s
+[root@lab adhocdockertest1]# kubectl get pods -n shashank 
+NAME                         READY   STATUS    RESTARTS   AGE
+shashank-d5595d55d-4mgcg     1/1     Running   0          92m
+shashank-d5595d55d-hx8nx     1/1     Running   0          92m
+shashank-d5595d55d-t5qr7     1/1     Running   0          92m
+shashankdb-9996476d7-hlcxc   1/1     Running   0          13s
+shashankpodapp               2/2     Running   0          104m
+
+
+exposing deployment
+----------------------
+[root@lab adhocdockertest1]# kubectl expose deployment shashankdb -n shashank --port 3306 --type ClusterIP --dry-run -o yaml > dbdeploymentsvc.yml
+W0419 18:27:15.987234   17969 helpers.go:535] --dry-run is deprecated and can be replaced with --dry-run=client.
+[root@lab adhocdockertest1]# ls
+dbdeploymentsvc.yml  deployment.yml   multipod.yml   secret                 shashankpodappsvc.yml  steps
+dbdeployment.yml     multipodapp.yml  namespace.yml  shashankdeploysvc.yml  shashanksec.yml
+
+Edited to add namespace
+----------------------------
+[root@lab adhocdockertest1]# vim dbdeploymentsvc.yml 
+apiVersion: v1
+kind: Service
+metadata:
+  creationTimestamp: null
+  labels:
+    app: shashankdb
+  name: shashankdb
+  namespace: shashank
+spec:
+  ports:
+  - port: 3306
+    protocol: TCP
+    targetPort: 3306
+  selector:
+    app: shashankpod11
+  type: ClusterIP
+status:
+  loadBalancer: {}
+
+[root@lab adhocdockertest1]# kubectl create -f dbdeploymentsvc.yml 
+service/shashankdb created
+[root@lab adhocdockertest1]# kubectl get svc -n shashank 
+NAME             TYPE        CLUSTER-IP      EXTERNAL-IP   PORT(S)        AGE
+shashank         NodePort    10.106.96.39    <none>        80:31706/TCP   73m
+shashankdb       ClusterIP   10.100.130.63   <none>        3306/TCP       3s
+shashankpodapp   NodePort    10.100.40.95    <none>        80:31695/TCP   95m
+
+logs
+-------------
+
+[root@lab adhocdockertest1]# kubectl logs -f shashankdb-9996476d7-hlcxc -n shashank 
+2020-04-19 13:44:00+00:00 [Note] [Entrypoint]: Entrypoint script for MySQL Server 8.0.19-1debian10 started.
+2020-04-19 13:44:01+00:00 [Note] [Entrypoint]: Switching to dedicated user 'mysql'
+2020-04-19 13:44:01+00:00 [Note] [Entrypoint]: Entrypoint script for MySQL Server 8.0.19-1debian10 started.
+2020-04-19 13:44:01+00:00 [Note] [Entrypoint]: Initializing database files
+2020-04-19T13:44:01.092112Z 0 [Warning] [MY-010139] [Server] Changed limits: max_open_files: 1024 (requested 8161)
+2020-04-19T13:44:01.092118Z 0 [Warning] [MY-010142] [Server] Changed limits: table_open_cache: 431 (requested 4000)
+2020-04-19T13:44:01.092389Z 0 [Warning] [MY-011070] [Server] 'Disabling symbolic links using --skip-symbolic-links (or equivalent) is the default. Consider not using this option as it' is deprecated and will be removed in a future release.
+2020-04-19T13:44:01.092460Z 0 [System] [MY-013169] [Server] /usr/sbin/mysqld (mysqld 8.0.19) initializing of server in progress as process 43
+2020-04-19T13:44:03.992676Z 5 [Warning] [MY-010453] [Server] root@localhost is created with an empty password ! Please consider switching off the --initialize-insecure option.
+2020-04-19 13:44:06+00:00 [Note] [Entrypoint]: Database files initialized
+2020-04-19 13:44:06+00:00 [Note] [Entrypoint]: Starting temporary server
+2020-04-19T13:44:06.522139Z 0 [Warning] [MY-010139] [Server] Changed limits: max_open_files: 1024 (requested 8161)
+2020-04-19T13:44:06.522145Z 0 [Warning] [MY-010142] [Server] Changed limits: table_open_cache: 431 (requested 4000)
+2020-04-19T13:44:06.814816Z 0 [Warning] [MY-011070] [Server] 'Disabling symbolic links using --skip-symbolic-links (or equivalent) is the default. Consider not using this option as it' is deprecated and will be removed in a future release.
+2020-04-19T13:44:06.814938Z 0 [System] [MY-010116] [Server] /usr/sbin/mysqld (mysqld 8.0.19) starting as process 93
+2020-04-19T13:44:07.270068Z 0 [Warning] [MY-010068] [Server] CA certificate ca.pem is self signed.
+2020-04-19T13:44:07.272065Z 0 [Warning] [MY-011810] [Server] Insecure configuration for --pid-file: Location '/var/run/mysqld' in the path is accessible to all OS users. Consider choosing a different directory.
+2020-04-19T13:44:07.291801Z 0 [System] [MY-010931] [Server] /usr/sbin/mysqld: ready for connections. Version: '8.0.19'  socket: '/var/run/mysqld/mysqld.sock'  port: 0  MySQL Community Server - GPL.
+2020-04-19 13:44:07+00:00 [Note] [Entrypoint]: Temporary server started.
+2020-04-19T13:44:07.404022Z 0 [System] [MY-011323] [Server] X Plugin ready for connections. Socket: '/var/run/mysqld/mysqlx.sock'
+Warning: Unable to load '/usr/share/zoneinfo/iso3166.tab' as time zone. Skipping it.
+Warning: Unable to load '/usr/share/zoneinfo/leap-seconds.list' as time zone. Skipping it.
+Warning: Unable to load '/usr/share/zoneinfo/zone.tab' as time zone. Skipping it.
+Warning: Unable to load '/usr/share/zoneinfo/zone1970.tab' as time zone. Skipping it.
+
+2020-04-19 13:44:09+00:00 [Note] [Entrypoint]: Stopping temporary server
+2020-04-19T13:44:09.591756Z 10 [System] [MY-013172] [Server] Received SHUTDOWN from user root. Shutting down mysqld (Version: 8.0.19).
+2020-04-19T13:44:11.479088Z 0 [System] [MY-010910] [Server] /usr/sbin/mysqld: Shutdown complete (mysqld 8.0.19)  MySQL Community Server - GPL.
+2020-04-19 13:44:11+00:00 [Note] [Entrypoint]: Temporary server stopped
+
+2020-04-19 13:44:11+00:00 [Note] [Entrypoint]: MySQL init process done. Ready for start up.
+
+2020-04-19T13:44:11.603308Z 0 [Warning] [MY-010139] [Server] Changed limits: max_open_files: 1024 (requested 8161)
+2020-04-19T13:44:11.603314Z 0 [Warning] [MY-010142] [Server] Changed limits: table_open_cache: 431 (requested 4000)
+2020-04-19T13:44:11.887144Z 0 [Warning] [MY-011070] [Server] 'Disabling symbolic links using --skip-symbolic-links (or equivalent) is the default. Consider not using this option as it' is deprecated and will be removed in a future release.
+2020-04-19T13:44:11.887256Z 0 [System] [MY-010116] [Server] /usr/sbin/mysqld (mysqld 8.0.19) starting as process 1
+2020-04-19T13:44:12.314603Z 0 [Warning] [MY-010068] [Server] CA certificate ca.pem is self signed.
+2020-04-19T13:44:12.317285Z 0 [Warning] [MY-011810] [Server] Insecure configuration for --pid-file: Location '/var/run/mysqld' in the path is accessible to all OS users. Consider choosing a different directory.
+2020-04-19T13:44:12.336823Z 0 [System] [MY-010931] [Server] /usr/sbin/mysqld: ready for connections. Version: '8.0.19'  socket: '/var/run/mysqld/mysqld.sock'  port: 3306  MySQL Community Server - GPL.
+2020-04-19T13:44:12.485142Z 0 [System] [MY-011323] [Server] X Plugin ready for connections. Socket: '/var/run/mysqld/mysqlx.sock' bind-address: '::' port: 33060
+

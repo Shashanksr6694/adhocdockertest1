@@ -1,0 +1,32 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  creationTimestamp: null
+  labels:
+    app: shashankdb
+  name: shashankdb
+  namespace: shashank
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: shashankpod11
+  strategy: {}
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        app: shashankpod11
+    spec:
+      containers:
+      - name: shashankpod11
+        image: mysql
+        ports:
+          - name: mysql
+            containerPort: 3306
+        env:
+          - name: MYSQL_ROOT_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: shashanksec
+                key: MYSQL_ROOT_PASSWORD

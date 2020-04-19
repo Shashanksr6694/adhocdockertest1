@@ -1,0 +1,33 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  creationTimestamp: null
+  labels:
+    app: shashank
+  name: shashank
+  namespace: shashank
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: shashank
+  strategy: {}
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        app: shashank
+    spec:
+      volumes: 
+       - name: depvol
+         hostPath:
+          path: /etc/passwd
+          type: File
+      containers:
+      - image: nginx
+        name: nginx
+        volumeMounts: 
+         - name: depvol
+           mountPath: /usr/share/nginx/html/index.html
+        resources: {}
+status: {}
